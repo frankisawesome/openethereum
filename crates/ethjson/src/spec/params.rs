@@ -106,6 +106,8 @@ pub struct Params {
     /// See `CommonParams` docs.
     pub eip2028_transition: Option<Uint>,
     /// See `CommonParams` docs.
+    pub eip2200_advance_transition: Option<Uint>,
+    /// See `CommonParams` docs.
     pub eip2315_transition: Option<Uint>,
     /// See `CommonParams` docs.
     pub eip2929_transition: Option<Uint>,
