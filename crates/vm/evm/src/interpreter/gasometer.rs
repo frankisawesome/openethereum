@@ -450,8 +450,9 @@ fn calculate_eip1283_eip2929_sstore_gas<Gas: evm::CostType>(
 ) -> Gas {
     Gas::from(
         if current == new {
-            // 1. If current value equals new value (this is a no-op).
-            schedule.sload_gas
+           // 1. If current value equals new value (this is a no-op), `SSTORE_DIRTY_GAS`
+           // (or if not set, `SLOAD_GAS`) is deducted.
+           schedule.sstore_dirty_gas.unwrap_or(schedule.sload_gas)
         } else {
             // 2. If current value does not equal new value
             if original == current {
@@ -464,8 +465,10 @@ fn calculate_eip1283_eip2929_sstore_gas<Gas: evm::CostType>(
                     schedule.sstore_reset_gas
                 }
             } else {
-                // 2.2. If original value does not equal current value (this storage slot is dirty).
-                schedule.sload_gas
+                // 2.2. If original value does not equal current value (this storage slot is
+                // dirty), `SSTORE_DIRTY_GAS` (or if not set, `SLOAD_GAS`) is deducted.
+                // Apply both of the following clauses.
+                schedule.sstore_dirty_gas.unwrap_or(schedule.sload_gas)
             }
         } + if is_cold {
             // EIP2929 SSTORE changes section
@@ -516,13 +519,17 @@ pub fn handle_eip1283_sstore_clears_refund(
             if original == new {
                 // 2.2.2. If original value equals new value (this storage slot is reset)
                 if original.is_zero() {
-                    // 2.2.2.1. If original value is 0, add 19800 gas to refund counter.
-                    let refund = ext.schedule().sstore_set_gas - ext.schedule().sload_gas;
-                    ext.add_sstore_refund(refund);
+                  // 2.2.2.1. If original value is 0, add `SSTORE_SET_GAS - SSTORE_DIRTY_GAS`
+                  // to refund counter.
+                  let refund = ext.schedule().sstore_set_gas
+                  	- ext.schedule().sstore_dirty_gas.unwrap_or(ext.schedule().sload_gas);
+                  ext.add_sstore_refund(refund);
                 } else {
-                    // 2.2.2.2. Otherwise, add 4800 gas to refund counter.
-                    let refund = ext.schedule().sstore_reset_gas - ext.schedule().sload_gas;
-                    ext.add_sstore_refund(refund);
+                   // 2.2.2.2. Otherwise, add `SSTORE_RESET_GAS - SSTORE_DIRTY_GAS`
+                   // to refund counter.
+                   let refund = ext.schedule().sstore_reset_gas
+                   	- ext.schedule().sstore_dirty_gas.unwrap_or(ext.schedule().sload_gas);
+                   ext.add_sstore_refund(refund);
                 }
             }
         }
